@@ -1,0 +1,12 @@
+# Serves the built site on the VM at 127.0.0.1:8082; Caddy proxies aac.hadighazi.com to it.
+# Copy this file to ~/look-and-say/ on the VM and run `docker compose up -d` there once.
+services:
+  web:
+    image: nginx:1.27-alpine
+    container_name: look-and-say-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    mem_limit: 128m

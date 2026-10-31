@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: dist
+          retention-days: 7
+
+  # Copies the built site to the VM. Off until the repository variable DEPLOY_ENABLED is 'true'
+  # and the secrets VM_HOST, VM_USER and VM_SSH_KEY are set.
+  deploy:
+    needs: build
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: site
+          path: dist
+      - name: Copy the site to the VM
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Files are replaced inside the existing folder, so the web container's bind mount keeps working.
+          tar -C dist -czf - . | ssh -i ~/.ssh/deploy_key "$VM_USER@$VM_HOST" \
+            'set -e; mkdir -p look-and-say/site; find look-and-say/site -mindepth 1 -delete; tar -xzf - -C look-and-say/site'
+      - name: Check the site answers
+        run: curl -fsS --max-time 20 https://aac.hadighazi.com/ > /dev/null && echo "site is up" || echo "site not reachable yet (DNS or Caddy not set up?)"

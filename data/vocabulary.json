@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "updated": "2026-10-31",
+  "source": "Starter list of 34 words from the therapist brief, with the speech therapist's corrections of 2026-10-31.",
+  "labels": {
+    "lb": "Lebanese label, the default spoken form",
+    "msa": "Modern Standard Arabic label; the therapist considers MSA labels fine, so the label register is chosen per user",
+    "lb_alt": "other Lebanese forms the family may prefer",
+    "lb_f / msa_f": "feminine form; f_means says whose gender it marks: 'speaker' (the user) or 'listener' (the person addressed)"
+  },
+  "colours": {
+    "core": "black",
+    "verb": "red",
+    "noun": "blue",
+    "emotion": "orange",
+    "person": "green",
+    "social": null
+  },
+  "colour_note": "Scheme from the speech therapist. She gave none for social words, so they fall back to core until she decides.",
+  "pictograms": {
+    "image_url": "https://static.arasaac.org/pictograms/{id}/{id}_300.png",
+    "attribution": "Pictographic symbols: Sergio Palao. Origin: ARASAAC (http://www.arasaac.org). License: CC (BY-NC-SA). Owner: Government of Aragon (Spain).",
+    "note": "Ids found by searching ARASAAC with the English term (the therapist's method); to be confirmed by the therapist."
+  },
+  "words": [
+    {"id": "want", "topic": "core", "class": "core", "lb": "بدّي", "msa": "أريد", "en": "I want", "search": "want", "arasaac": 5441},
+    {"id": "more", "topic": "core", "class": "core", "lb": "بعد", "lb_alt": ["كمان"], "msa": "المزيد", "en": "more, again", "search": "more", "arasaac": 5508, "note": "The therapist: in Lebanese, بعد rather than كمان."},
+    {"id": "finished", "topic": "core", "class": "core", "lb": "خلص", "msa": "انتهى", "en": "finished, stop", "search": "finished", "arasaac": 28429},
+    {"id": "no", "topic": "core", "class": "core", "lb": "لا", "msa": "لا", "en": "no", "search": "no", "arasaac": 5526},
+    {"id": "yes", "topic": "core", "class": "core", "lb": "إيه", "msa": "نعم", "en": "yes", "search": "yes", "arasaac": 5584},
+    {"id": "help", "topic": "core", "class": "core", "lb": "ساعدني", "lb_f": "ساعديني", "msa": "ساعدني", "msa_f": "ساعديني", "f_means": "listener", "en": "help me", "search": "help", "arasaac": 32648, "note": "Feminine form from the therapist, used when asking a woman."},
+    {"id": "this", "topic": "core", "class": "core", "lb": "هيدا", "msa": "هذا", "en": "this one", "search": "this", "arasaac": 7095},
+    {"id": "what", "topic": "core", "class": "core", "lb": "شو", "msa": "ماذا", "en": "what", "search": "what", "arasaac": 22620},
+    {"id": "where", "topic": "core", "class": "core", "lb": "وين", "msa": "أين", "en": "where", "search": "where", "arasaac": 7764},
+
+    {"id": "hello", "topic": "social", "class": "social", "lb": "مرحبا", "lb_alt": ["هاي", "بونجور"], "msa": "مرحباً", "en": "hello", "search": "hello", "arasaac": 6522},
+    {"id": "thank_you", "topic": "social", "class": "social", "lb": "ميرسي", "lb_alt": ["شكراً"], "msa": "شكراً", "en": "thank you", "search": "thank you", "arasaac": 8129},
+    {"id": "lets_go", "topic": "social", "class": "social", "lb": "يلّا", "msa": "هيا", "en": "let's go", "search": "go", "arasaac": 8142, "note": "ARASAAC has no 'let's go'; its 'go' pictogram is used."},
+
+    {"id": "water", "topic": "food_drink", "class": "noun", "lb": "مي", "msa": "ماء", "en": "water", "search": "water", "arasaac": 32464},
+    {"id": "juice", "topic": "food_drink", "class": "noun", "lb": "عصير", "msa": "عصير", "en": "juice", "search": "juice", "arasaac": 11461},
+    {"id": "milk", "topic": "food_drink", "class": "noun", "lb": "حليب", "msa": "حليب", "en": "milk", "search": "milk", "arasaac": 2445},
+    {"id": "manoushe", "topic": "food_drink", "class": "noun", "lb": "منقوشة", "msa": "منقوشة", "en": "man'oushe", "search": "pitta", "arasaac": 36469, "note": "No man'oushe pictogram in ARASAAC; 'pitta' stands in, or a family photo."},
+    {"id": "chocolate", "topic": "food_drink", "class": "noun", "lb": "شوكولا", "msa": "شوكولاتة", "en": "chocolate", "search": "chocolate", "arasaac": 25940},
+    {"id": "apple", "topic": "food_drink", "class": "noun", "lb": "تفاحة", "msa": "تفاحة", "en": "apple", "search": "apple", "arasaac": 2462},
+
+    {"id": "mum", "topic": "people", "class": "person", "lb": "ماما", "msa": "أمي", "en": "mum", "search": "mother", "arasaac": 2458},
+    {"id": "dad", "topic": "people", "class": "person", "lb": "بابا", "msa": "أبي", "en": "dad", "search": "father", "arasaac": 2497},
+    {"id": "grandma", "topic": "people", "class": "person", "lb": "تيتا", "lb_alt": ["تاتا"], "msa": "جدتي", "en": "grandma", "search": "grandmother", "arasaac": 23710, "note": "تاتا is the therapist's alternative."},
+    {"id": "grandpa", "topic": "people", "class": "person", "lb": "جدّو", "msa": "جدي", "en": "grandpa", "search": "grandfather", "arasaac": 23718},
+    {"id": "sibling", "topic": "people", "class": "person", "choices": [
+      {"lb": "خيّي", "msa": "أخي", "en": "my brother", "search": "brother", "arasaac": 2423},
+      {"lb": "أختي", "msa": "أختي", "en": "my sister", "search": "sister", "arasaac": 2422}
+    ], "note": "Pick one or both per user, or replace with family members' names."},
+
+    {"id": "happy", "topic": "feelings_body", "class": "emotion", "lb": "مبسوط", "lb_f": "مبسوطة", "msa": "سعيد", "msa_f": "سعيدة", "f_means": "speaker", "en": "happy", "search": "happy", "arasaac": 35533},
+    {"id": "upset", "topic": "feelings_body", "class": "emotion", "lb": "زعلان", "lb_f": "زعلانة", "msa": "حزين", "msa_f": "حزينة", "f_means": "speaker", "en": "upset", "search": "sad", "arasaac": 35545},
+    {"id": "tired", "topic": "feelings_body", "class": "emotion", "lb": "تعبان", "lb_f": "تعبانة", "msa": "متعب", "msa_f": "متعبة", "f_means": "speaker", "en": "tired", "search": "tired", "arasaac": 35537},
+    {"id": "it_hurts", "topic": "feelings_body", "class": "emotion", "lb": "بيوجعني", "msa": "يؤلمني", "en": "it hurts", "search": "pain", "arasaac": 2367, "note": "A body sensation; coloured as an emotion until the therapist decides."},
+    {"id": "toilet", "topic": "feelings_body", "class": "noun", "lb": "حمّام", "msa": "حمّام", "en": "toilet", "search": "toilet", "arasaac": 5921},
+
+    {"id": "ball", "topic": "play_places", "class": "noun", "lb": "طابة", "msa": "كرة", "en": "ball", "search": "ball", "arasaac": 3241},
+    {"id": "play", "topic": "play_places", "class": "verb", "lb": "لعب", "msa": "لعب", "en": "play", "search": "play", "arasaac": 23392},
+    {"id": "tablet", "topic": "play_places", "class": "noun", "lb": "آيباد", "lb_alt": ["تاب"], "msa": "جهاز لوحي", "en": "tablet", "search": "tablet", "arasaac": 28099, "note": "تاب is the therapist's alternative. 28099 shows a tablet; 9165 ('tablet pc') is a laptop."},
+    {"id": "outside", "topic": "play_places", "class": "noun", "lb": "برّا", "msa": "في الخارج", "en": "outside", "search": "outside", "arasaac": 5475},
+    {"id": "home", "topic": "play_places", "class": "noun", "lb": "البيت", "msa": "المنزل", "en": "home", "search": "house", "arasaac": 6964},
+    {"id": "school", "topic": "play_places", "class": "noun", "lb": "المدرسة", "msa": "المدرسة", "en": "school", "search": "school", "arasaac": 32446}
+  ]
+}
