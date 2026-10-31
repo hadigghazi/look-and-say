@@ -41,39 +41,59 @@ export function concat(parts: Float32Array[]): Float32Array {
   return out;
 }
 
+function percentile(values: number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+}
+
 export interface DetectorOptions {
   frameMs: number; // analysis frame length
-  minSpeechMs: number; // speech needed before a word starts
-  hangoverMs: number; // silence that ends a word
+  startWindowMs: number; // a word starts when enough of this recent window is loud...
+  startMs: number; // ...namely this much of it, so dips between syllables do not matter
+  hangoverMs: number; // this much quiet ends a word
   preRollMs: number; // audio kept from just before the start
-  minUtteranceMs: number; // shorter detections are discarded as noise
-  maxUtteranceMs: number; // a word is cut here even if speech continues
+  tailMs: number; // quiet kept after the last loud frame, for a natural ending
+  minVoicedMs: number; // sounds with less speech than this are clicks or bumps, not words
+  maxUtteranceMs: number; // a word is cut here even if sound continues
   absoluteFloor: number; // frame loudness (RMS) below this is always silence
-  snrFactor: number; // speech must be this many times louder than the noise floor
+  startRatio: number; // to start, a frame must be this many times louder than the background
+  stayRatio: number; // to keep going, a lower ratio (hysteresis)
+  noiseWindowMs: number; // background noise is estimated over this much recent audio...
+  noisePercentile: number; // ...as this percentile of frame loudness, i.e. its quiet moments
 }
 
 export const DEFAULT_DETECTOR: DetectorOptions = {
   frameMs: 10,
-  minSpeechMs: 60,
-  hangoverMs: 350,
-  preRollMs: 200,
-  minUtteranceMs: 200,
+  startWindowMs: 80,
+  startMs: 50,
+  hangoverMs: 400,
+  preRollMs: 250,
+  tailMs: 60,
+  minVoicedMs: 100,
   maxUtteranceMs: 3000,
-  absoluteFloor: 0.008,
-  snrFactor: 3,
+  absoluteFloor: 0.002,
+  startRatio: 3,
+  stayRatio: 1.8,
+  noiseWindowMs: 3000,
+  noisePercentile: 0.15,
 };
 
-/** Splits a 16 kHz stream into single utterances: loud frames start one, a pause ends it. */
+/** Splits a 16 kHz stream into single utterances: speech clearly above the background starts one, a pause ends it. */
 export class UtteranceDetector {
   /** Loudness (RMS) of the latest frame, for a level meter. */
   level = 0;
+  /** Estimated background loudness (RMS). */
+  noise = 0;
   private readonly frameLen: number;
   private pending: Float32Array = new Float32Array(0);
   private preRoll: Float32Array[] = [];
   private current: Float32Array[] | null = null;
-  private speechRun = 0;
+  private recent: boolean[] = [];
+  private history: number[] = [];
+  private sinceNoiseUpdate = 0;
   private silenceRun = 0;
-  private noiseFloor = 0.01;
+  private voiced = 0;
 
   constructor(
     private readonly onUtterance: (audio: Float32Array) => void,
@@ -81,6 +101,16 @@ export class UtteranceDetector {
     rate: number = TARGET_RATE,
   ) {
     this.frameLen = Math.round((opts.frameMs / 1000) * rate);
+  }
+
+  /** Loudness a frame needs to count towards starting a word. */
+  get startThreshold(): number {
+    return Math.max(this.opts.absoluteFloor, this.noise * this.opts.startRatio);
+  }
+
+  /** Loudness a frame needs to keep a word going. */
+  get stayThreshold(): number {
+    return Math.max(this.opts.absoluteFloor, this.noise * this.opts.stayRatio);
   }
 
   push(chunk: Float32Array): void {
@@ -94,7 +124,7 @@ export class UtteranceDetector {
   }
 
   private frames(ms: number): number {
-    return Math.round(ms / this.opts.frameMs);
+    return Math.max(1, Math.round(ms / this.opts.frameMs));
   }
 
   private frame(frame: Float32Array): void {
@@ -102,32 +132,45 @@ export class UtteranceDetector {
     for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
     const rms = Math.sqrt(sum / frame.length);
     this.level = rms;
-    const threshold = Math.max(this.opts.absoluteFloor, this.noiseFloor * this.opts.snrFactor);
-    const isSpeech = rms > threshold;
 
     if (this.current === null) {
-      // Track background noise only while nobody is speaking.
-      if (!isSpeech) this.noiseFloor = 0.95 * this.noiseFloor + 0.05 * rms;
+      // Background noise: the quiet moments of the last few seconds, measured only between words.
+      this.history.push(rms);
+      if (this.history.length > this.frames(this.opts.noiseWindowMs)) this.history.shift();
+      if (++this.sinceNoiseUpdate >= 10 || this.history.length < 20) {
+        this.sinceNoiseUpdate = 0;
+        this.noise = percentile(this.history, this.opts.noisePercentile);
+      }
       this.preRoll.push(frame);
       if (this.preRoll.length > this.frames(this.opts.preRollMs)) this.preRoll.shift();
-      this.speechRun = isSpeech ? this.speechRun + 1 : 0;
-      if (this.speechRun >= this.frames(this.opts.minSpeechMs)) {
+      this.recent.push(rms > this.startThreshold);
+      if (this.recent.length > this.frames(this.opts.startWindowMs)) this.recent.shift();
+      if (this.recent.filter(Boolean).length >= this.frames(this.opts.startMs)) {
         this.current = this.preRoll;
         this.preRoll = [];
+        this.recent = [];
         this.silenceRun = 0;
+        this.voiced = this.frames(this.opts.startMs); // the frames that started it were speech
       }
       return;
     }
 
     this.current.push(frame);
-    this.silenceRun = isSpeech ? 0 : this.silenceRun + 1;
+    if (rms > this.stayThreshold) {
+      this.voiced++;
+      this.silenceRun = 0;
+    } else {
+      this.silenceRun++;
+    }
     const length = this.current.length;
     if (this.silenceRun >= this.frames(this.opts.hangoverMs) || length >= this.frames(this.opts.maxUtteranceMs)) {
-      const kept = this.current.slice(0, length - this.silenceRun); // drop the trailing pause
+      const tail = Math.min(this.silenceRun, this.frames(this.opts.tailMs));
+      const kept = this.current.slice(0, length - this.silenceRun + tail);
+      const voiced = this.voiced;
       this.current = null;
-      this.speechRun = 0;
       this.silenceRun = 0;
-      if (kept.length >= this.frames(this.opts.minUtteranceMs)) this.onUtterance(concat(kept));
+      this.voiced = 0;
+      if (voiced >= this.frames(this.opts.minVoicedMs)) this.onUtterance(concat(kept));
     }
   }
 }
@@ -139,9 +182,10 @@ export interface MicHandle {
 
 /** Starts the microphone and hands 16 kHz chunks to onChunk. Call from a click, so audio may start. */
 export async function startMic(onChunk: (chunk16k: Float32Array) => void): Promise<MicHandle> {
-  // Browser noise suppression and gain control would change each recording differently, so they are off.
+  // Automatic gain keeps quiet laptop microphones usable; the MFCC mean normalisation cancels the
+  // loudness differences it causes. Noise suppression stays off because it distorts atypical speech.
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true },
   });
   const ctx = new AudioContext();
   await ctx.resume();

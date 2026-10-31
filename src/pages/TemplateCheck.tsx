@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { startMic, UtteranceDetector, type MicHandle } from '../audio/capture';
+import { startMic, TARGET_RATE, UtteranceDetector, type MicHandle } from '../audio/capture';
 import { mfcc } from '../audio/mfcc';
 import { classify, type Ranked, type Template } from '../audio/templates';
+import { LevelMeter, useLevels } from '../components/LevelMeter';
 import { cells } from '../vocab';
 
 // Week-1 check: record five words three times each, then test whether MFCC + DTW
@@ -31,7 +32,10 @@ export function TemplateCheck() {
   const [results, setResults] = useState<Result[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastHeard, setLastHeard] = useState<string | null>(null);
   const micRef = useRef<MicHandle | null>(null);
+  const detectorRef = useRef<UtteranceDetector | null>(null);
+  const levels = useLevels(detectorRef, running);
 
   useEffect(() => () => micRef.current?.stop(), []);
 
@@ -43,6 +47,8 @@ export function TemplateCheck() {
   // Called by the detector for every word heard; refs keep it current across renders.
   function onUtterance(audio: Float32Array) {
     const m = modeRef.current;
+    const seconds = (audio.length / TARGET_RATE).toFixed(2);
+    setLastHeard(m.kind === 'idle' ? `Heard a ${seconds} s sound (not recording right now)` : `Heard a ${seconds} s word`);
     if (m.kind === 'idle') return;
     const feats = mfcc(audio);
     if (m.kind === 'enrol') {
@@ -58,6 +64,7 @@ export function TemplateCheck() {
   async function start() {
     setError(null);
     const detector = new UtteranceDetector(onUtterance);
+    detectorRef.current = detector;
     try {
       micRef.current = await startMic((chunk) => detector.push(chunk));
       setRunning(true);
@@ -89,8 +96,9 @@ export function TemplateCheck() {
     <section className="check">
       <h1>Check 3: voice templates</h1>
       <p>
-        Record each word {PER_WORD} times in your own way, then test: the app shows a word, you say it, and it guesses from your
-        recordings alone.
+        Start the microphone and stay quiet for two seconds so the app can measure the room. Then record each word {PER_WORD}{' '}
+        times in your own way: press Record, then say the word once. Finally test: the app shows a word, you say it, and it
+        guesses from your recordings alone.
       </p>
       <div className="row">
         {running ? (
@@ -98,12 +106,14 @@ export function TemplateCheck() {
             Stop microphone
           </button>
         ) : (
-          <button type="button" onClick={start}>
+          <button type="button" onClick={() => void start()}>
             Start microphone
           </button>
         )}
       </div>
       {error && <p className="error">{error}</p>}
+      {running && <LevelMeter {...levels} />}
+      {lastHeard && <p className="heard">{lastHeard}</p>}
 
       <h2>1. Record</h2>
       <table className="table">

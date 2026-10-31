@@ -220,18 +220,50 @@ main {
   color: #b91c1c;
 }
 
+.level {
+  margin: 12px 0;
+}
+
 .meter {
+  position: relative;
   width: 100%;
   max-width: 480px;
   height: 14px;
   background: var(--border);
   border-radius: 7px;
-  overflow: hidden;
 }
 
 .meter-fill {
   height: 100%;
   background: var(--accent);
+  border-radius: 7px;
+}
+
+.meter-fill.speaking {
+  background: #2e7d32;
+}
+
+.meter-mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  border-radius: 2px;
+}
+
+.meter-mark.noise {
+  background: #9e9e9e;
+}
+
+.meter-mark.threshold {
+  background: #ef6c00;
+}
+
+.meter-legend,
+.heard {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .clips {

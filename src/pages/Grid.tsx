@@ -3,6 +3,7 @@ import { ATTRIBUTION, cells, classColour, label, pictogramUrl, type Gender, type
 import { speak, speakAsync, useHasArabicVoice } from '../speech/tts';
 import { playAudio, startMic, UtteranceDetector, type MicHandle } from '../audio/capture';
 import { loadRecordings, saveRecording } from '../storage/voiceStore';
+import { LevelMeter, useLevels } from '../components/LevelMeter';
 
 const LANGS = ['lb', 'msa', 'en'] as const;
 const GENDERS = ['m', 'f'] as const;
@@ -38,6 +39,8 @@ export function Grid() {
   const [armed, setArmed] = useState<string | null>(null);
   const armedRef = useRef<string | null>(null);
   const micRef = useRef<MicHandle | null>(null);
+  const detectorRef = useRef<UtteranceDetector | null>(null);
+  const levels = useLevels(detectorRef, recordMode);
   const [micError, setMicError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export function Grid() {
       void saveRecording(text, audio);
       void playAudio(audio);
     });
+    detectorRef.current = detector;
     try {
       micRef.current = await startMic((chunk) => detector.push(chunk));
       setRecordMode(true);
@@ -164,6 +168,12 @@ export function Grid() {
           <span className="warn">This device has no Arabic voice: use «Record the voice» so the words can be spoken.</span>
         )}
       </div>
+
+      {recordMode && (
+        <div dir="ltr">
+          <LevelMeter {...levels} />
+        </div>
+      )}
 
       <div className="cells">
         {all.map((c) => {

@@ -5,6 +5,25 @@ import { fft, mfcc } from './mfcc';
 import { classify } from './templates';
 
 const seq = (rows: number[][]) => rows.map((r) => Float64Array.from(r));
+const samples = (seconds: number) => Math.round(TARGET_RATE * seconds);
+
+/** Deterministic uniform noise with the given RMS, so tests always see the same signal. */
+function noise(n: number, rms: number, seed = 1): Float32Array {
+  const out = new Float32Array(n);
+  let s = seed;
+  for (let i = 0; i < n; i++) {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    out[i] = ((s / 2 ** 32) * 2 - 1) * rms * Math.sqrt(3);
+  }
+  return out;
+}
+
+/** A 300 Hz tone, optionally shaped by an envelope (to imitate syllables). */
+function tone(n: number, amplitude: number, envelope: (i: number) => number = () => 1): Float32Array {
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = amplitude * envelope(i) * Math.sin((2 * Math.PI * 300 * i) / TARGET_RATE);
+  return out;
+}
 
 describe('fft', () => {
   it('puts a pure tone in its frequency bin', () => {
@@ -80,15 +99,33 @@ describe('UtteranceDetector', () => {
   it('finds one word between two silences', () => {
     const found: Float32Array[] = [];
     const detector = new UtteranceDetector((audio) => found.push(audio));
-    const silence = new Float32Array(TARGET_RATE / 2);
-    const word = new Float32Array((TARGET_RATE * 2) / 5);
-    for (let i = 0; i < word.length; i++) word[i] = 0.3 * Math.sin((2 * Math.PI * 300 * i) / TARGET_RATE);
-    detector.push(silence);
-    detector.push(word);
-    detector.push(silence);
+    detector.push(new Float32Array(samples(0.5)));
+    detector.push(tone(samples(0.4), 0.3));
+    detector.push(new Float32Array(samples(0.6)));
     expect(found.length).toBe(1);
     const seconds = found[0].length / TARGET_RATE;
     expect(seconds).toBeGreaterThan(0.35);
-    expect(seconds).toBeLessThan(0.7);
+    expect(seconds).toBeLessThan(0.8);
+  });
+
+  it('finds a quiet word with dips between syllables over background noise', () => {
+    const found: Float32Array[] = [];
+    const detector = new UtteranceDetector((audio) => found.push(audio));
+    const syllables = (i: number) => 0.3 + 0.7 * Math.abs(Math.sin((4 * Math.PI * i) / TARGET_RATE));
+    const word = tone(samples(0.5), 0.014, syllables);
+    const backgroundUnderWord = noise(word.length, 0.002, 3);
+    detector.push(noise(samples(0.8), 0.002, 1));
+    detector.push(word.map((v, i) => v + backgroundUnderWord[i]));
+    detector.push(noise(samples(0.8), 0.002, 5));
+    expect(found.length).toBe(1);
+  });
+
+  it('ignores a short click', () => {
+    const found: Float32Array[] = [];
+    const detector = new UtteranceDetector((audio) => found.push(audio));
+    detector.push(noise(samples(0.8), 0.002, 7));
+    detector.push(tone(samples(0.02), 0.5));
+    detector.push(noise(samples(0.8), 0.002, 9));
+    expect(found.length).toBe(0);
   });
 });
