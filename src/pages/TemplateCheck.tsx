@@ -1,21 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { startMic, TARGET_RATE, UtteranceDetector, type MicHandle } from '../audio/capture';
-import { mfcc } from '../audio/mfcc';
-import { classify, type Ranked, type Template } from '../audio/templates';
 import { LevelMeter, useLevels } from '../components/LevelMeter';
+import { ranked } from '../fusion/fuse';
 import { cells } from '../vocab';
+import { VoiceModel, wordFeatures } from '../voice/voiceModel';
 
-// Week-1 check: record five words three times each, then test whether MFCC + DTW
-// recognises them from your own recordings. The confusion matrix shows which words get mixed up.
+// Week-1 check: record five words three times each, then test whether the user's own recordings
+// recognise them (MFCC + DTW). The confusion matrix shows which words get mixed up.
 
 const WORD_IDS = ['water', 'juice', 'mum', 'dad', 'ball'];
 const PER_WORD = 3;
 
 type Mode = { kind: 'idle' } | { kind: 'enrol'; word: string } | { kind: 'test'; word: string };
 
+interface Guess {
+  word: string;
+  probability: number;
+  distance: number;
+}
+
 interface Result {
   truth: string;
-  ranking: Ranked[];
+  ranking: Guess[];
 }
 
 export function TemplateCheck() {
@@ -25,8 +31,9 @@ export function TemplateCheck() {
     return c ? `${c.lb} (${c.en})` : id;
   };
 
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const templatesRef = useRef<Template[]>([]);
+  const model = useRef(new VoiceModel());
+  const nextId = useRef(1);
+  const [counts, setCounts] = useState<Map<string, number>>(() => new Map());
   const [mode, setMode] = useState<Mode>({ kind: 'idle' });
   const modeRef = useRef<Mode>({ kind: 'idle' });
   const [results, setResults] = useState<Result[]>([]);
@@ -50,13 +57,16 @@ export function TemplateCheck() {
     const seconds = (audio.length / TARGET_RATE).toFixed(2);
     setLastHeard(m.kind === 'idle' ? `Heard a ${seconds} s sound (not recording right now)` : `Heard a ${seconds} s word`);
     if (m.kind === 'idle') return;
-    const feats = mfcc(audio);
+    const feats = wordFeatures(audio);
     if (m.kind === 'enrol') {
-      const next = [...templatesRef.current, { label: m.word, feats }];
-      templatesRef.current = next;
-      setTemplates(next);
+      model.current.add({ id: nextId.current++, key: m.word, source: 'taught', feats, audio });
+      setCounts(new Map(WORD_IDS.map((id): [string, number] => [id, model.current.count(id)])));
     } else {
-      setResults((r) => [{ truth: m.word, ranking: classify(feats, templatesRef.current) }, ...r]);
+      const r = model.current.recognise(feats, WORD_IDS);
+      const ranking = r
+        ? ranked(r.dist).map(([word, probability]) => ({ word, probability, distance: r.distances.get(word) ?? Number.NaN }))
+        : [];
+      setResults((rs) => [{ truth: m.word, ranking }, ...rs]);
     }
     changeMode({ kind: 'idle' });
   }
@@ -80,7 +90,7 @@ export function TemplateCheck() {
     changeMode({ kind: 'idle' });
   }
 
-  const count = (id: string) => templates.filter((t) => t.label === id).length;
+  const count = (id: string) => counts.get(id) ?? 0;
   const ready = WORD_IDS.every((id) => count(id) > 0);
 
   function nextTest() {

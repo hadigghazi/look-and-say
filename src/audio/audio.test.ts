@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { resample, TARGET_RATE, UtteranceDetector } from './capture';
+import { concat, resample, TARGET_RATE, trimSilence, UtteranceDetector } from './capture';
 import { dtw } from './dtw';
 import { fft, mfcc } from './mfcc';
-import { classify } from './templates';
 
 const seq = (rows: number[][]) => rows.map((r) => Float64Array.from(r));
 const samples = (seconds: number) => Math.round(TARGET_RATE * seconds);
@@ -76,16 +75,12 @@ describe('dtw', () => {
   });
 });
 
-describe('classify', () => {
-  it('ranks the word whose template matches first, with probabilities summing to 1', () => {
-    const water = seq([[0, 0], [1, 1], [2, 2]]);
-    const juice = seq([[5, 5], [4, 6], [3, 7]]);
-    const ranking = classify(seq([[0, 0], [1, 1], [1, 1], [2, 2]]), [
-      { label: 'water', feats: water },
-      { label: 'juice', feats: juice },
-    ]);
-    expect(ranking[0].word).toBe('water');
-    expect(ranking.reduce((s, r) => s + r.probability, 0)).toBeCloseTo(1, 12);
+describe('trimSilence', () => {
+  it('keeps the word and a short margin, not the quiet around it', () => {
+    const audio = concat([noise(samples(0.3), 0.001), tone(samples(0.4), 0.3), noise(samples(0.3), 0.001, 2)]);
+    const seconds = trimSilence(audio).length / TARGET_RATE;
+    expect(seconds).toBeGreaterThan(0.4);
+    expect(seconds).toBeLessThan(0.5);
   });
 });
 

@@ -107,3 +107,23 @@ export function label(cell: Cell, lang: LabelLang, gender: Gender): string {
   if (lang === 'msa') return feminine && cell.msaF ? cell.msaF : cell.msa;
   return feminine && cell.lbF ? cell.lbF : cell.lb;
 }
+
+// Page names: every word, or one topic of vocabulary.json. The therapist may rename these.
+const PAGE_NAMES: Record<string, Record<LabelLang, string>> = {
+  all: { lb: 'الكل', msa: 'الكل', en: 'All' },
+  core: { lb: 'أساسي', msa: 'أساسي', en: 'Core' },
+  social: { lb: 'اجتماعي', msa: 'اجتماعي', en: 'Social' },
+  food_drink: { lb: 'أكل وشرب', msa: 'طعام وشراب', en: 'Food & drink' },
+  people: { lb: 'ناس', msa: 'أشخاص', en: 'People' },
+  feelings_body: { lb: 'مشاعر وجسم', msa: 'مشاعر وجسم', en: 'Feelings & body' },
+  play_places: { lb: 'لعب وأماكن', msa: 'لعب وأماكن', en: 'Play & places' },
+};
+
+export function pageName(page: string, lang: LabelLang): string {
+  return PAGE_NAMES[page]?.[lang] ?? page;
+}
+
+/** The topics of the given cells, in the order they first appear. */
+export function topicsOf(list: Cell[]): string[] {
+  return [...new Set(list.map((c) => c.topic))];
+}

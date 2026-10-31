@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { playAudio, startMic, TARGET_RATE, UtteranceDetector, type MicHandle } from '../audio/capture';
+import { startMic, TARGET_RATE, UtteranceDetector, type MicHandle } from '../audio/capture';
+import { playAudio } from '../audio/output';
 import { LevelMeter, useLevels } from '../components/LevelMeter';
 
 // Week-1 check: does the browser give us the microphone, and does speech detection cut single words cleanly?

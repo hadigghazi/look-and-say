@@ -41,6 +41,32 @@ export function concat(parts: Float32Array[]): Float32Array {
   return out;
 }
 
+/**
+ * Cuts the quiet before and after a word (the detector keeps some, so playback sounds natural), so that
+ * recognition compares the speech itself. Frames more than 26 dB below the loudest one count as quiet.
+ */
+export function trimSilence(audio: Float32Array, rate = TARGET_RATE, relative = 0.05, marginMs = 40): Float32Array {
+  const frame = Math.round(rate / 100); // 10 ms
+  const count = Math.floor(audio.length / frame);
+  if (count === 0) return audio;
+  const rms = new Float64Array(count);
+  let peak = 0;
+  for (let f = 0; f < count; f++) {
+    let sum = 0;
+    for (let i = f * frame; i < (f + 1) * frame; i++) sum += audio[i] * audio[i];
+    rms[f] = Math.sqrt(sum / frame);
+    peak = Math.max(peak, rms[f]);
+  }
+  if (peak === 0) return audio;
+  const threshold = peak * relative;
+  let first = 0;
+  while (rms[first] < threshold) first++;
+  let last = count - 1;
+  while (rms[last] < threshold) last--;
+  const margin = Math.round(marginMs / 10);
+  return audio.slice(Math.max(0, first - margin) * frame, Math.min(audio.length, (last + 1 + margin) * frame));
+}
+
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -113,6 +139,11 @@ export class UtteranceDetector {
     return Math.max(this.opts.absoluteFloor, this.noise * this.opts.stayRatio);
   }
 
+  /** Whether a word is being said right now (it is reported once it ends). */
+  get speaking(): boolean {
+    return this.current !== null;
+  }
+
   push(chunk: Float32Array): void {
     const data = concat([this.pending, chunk]);
     let offset = 0;
@@ -182,13 +213,22 @@ export interface MicHandle {
 
 /** Starts the microphone and hands 16 kHz chunks to onChunk. Call from a click, so audio may start. */
 export async function startMic(onChunk: (chunk16k: Float32Array) => void): Promise<MicHandle> {
-  // Automatic gain keeps quiet laptop microphones usable; the MFCC mean normalisation cancels the
-  // loudness differences it causes. Noise suppression stays off because it distorts atypical speech.
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true },
-  });
+  // The audio context is made before asking for the microphone, while the tap still counts as one:
+  // iPad Safari keeps contexts made later silent.
   const ctx = new AudioContext();
-  await ctx.resume();
+  ctx.resume().catch(() => undefined);
+  let stream: MediaStream;
+  try {
+    // Automatic gain keeps quiet laptop microphones usable; the MFCC mean normalisation cancels the
+    // loudness differences it causes. Noise suppression stays off because it distorts atypical speech.
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+    });
+  } catch (e) {
+    void ctx.close();
+    throw e;
+  }
+  if (ctx.state === 'suspended') ctx.resume().catch(() => undefined);
   const source = ctx.createMediaStreamSource(stream);
   // ScriptProcessorNode is deprecated but works everywhere, including Safari; an AudioWorklet can replace it later.
   const processor = ctx.createScriptProcessor(4096, 1, 1);
@@ -206,21 +246,4 @@ export async function startMic(onChunk: (chunk16k: Float32Array) => void): Promi
       void ctx.close();
     },
   };
-}
-
-/** Plays 16 kHz samples; resolves when playback ends, so words can be played one after another. */
-export function playAudio(samples: Float32Array, rate: number = TARGET_RATE): Promise<void> {
-  return new Promise((resolve) => {
-    const ctx = new AudioContext();
-    const buffer = ctx.createBuffer(1, samples.length, rate);
-    buffer.getChannelData(0).set(samples);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.onended = () => {
-      void ctx.close();
-      resolve();
-    };
-    source.start();
-  });
 }
