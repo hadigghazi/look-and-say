@@ -43,8 +43,11 @@ export function solve(A: number[][], b: number[]): number[] {
   return x;
 }
 
-/** Weights minimising |Z w - y|^2 + lambda |w|^2, leaving the bias (column 0) unpenalised. */
-export function ridge(Z: number[][], y: number[], lambda: number): number[] {
+/**
+ * Weights minimising |Z w - y|^2 + sum_i lambda_i w_i^2, leaving the bias (column 0) unpenalised.
+ * `lambda` is one penalty for every input, or one per input (excluding the bias).
+ */
+export function ridge(Z: number[][], y: number[], lambda: number | number[]): number[] {
   const d = Z[0].length;
   const A = Array.from({ length: d }, () => new Array<number>(d).fill(0));
   const b = new Array<number>(d).fill(0);
@@ -54,7 +57,7 @@ export function ridge(Z: number[][], y: number[], lambda: number): number[] {
       for (let j = 0; j < d; j++) A[i][j] += z[i] * z[j];
     }
   });
-  for (let i = 1; i < d; i++) A[i][i] += lambda;
+  for (let i = 1; i < d; i++) A[i][i] += Array.isArray(lambda) ? lambda[i - 1] : lambda;
   return solve(A, b);
 }
 

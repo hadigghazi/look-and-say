@@ -1,27 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GazeTracker } from './tracker';
 import { isBlink } from './features';
-import { fitGaze, type FitResult, type Sample } from './model';
+import { fitGaze, type FitResult, type PointerMode, type Sample } from './model';
 
-// Nine dots across the window. The eyes follow each one, and the camera features recorded while looking
-// at it become training data for the gaze model. Snake order keeps the jumps between dots short.
+// Thirteen dots across the window: a 3 x 3 grid plus four in between. While the user looks at (or points
+// their head at) each one, the camera features become training data for the pointer model. The order
+// snakes across rows so the jumps between dots stay short.
 const DOTS: [number, number][] = [
   [0.1, 0.1], [0.5, 0.1], [0.9, 0.1],
-  [0.9, 0.5], [0.5, 0.5], [0.1, 0.5],
+  [0.7, 0.3], [0.3, 0.3],
+  [0.1, 0.5], [0.5, 0.5], [0.9, 0.5],
+  [0.7, 0.7], [0.3, 0.7],
   [0.1, 0.9], [0.5, 0.9], [0.9, 0.9],
 ];
-const SETTLE_MS = 700; // time for the eyes to land on the new dot before recording
-const COLLECT_MS = 1000; // recording time per dot
-const MIN_SAMPLES = 60; // fewer usable frames than this means the camera did not see the eyes
+const SETTLE_MS = 600; // time to land on the new dot before recording
+const COLLECT_MS = 1100; // recording time per dot
+const MIN_SAMPLES = 80; // fewer usable frames than this means the camera did not see the face
 
 export type CalibrationEnd = 'done' | 'cancelled' | 'failed';
 
+const INSTRUCTIONS: Record<PointerMode, string> = {
+  eyes: 'Rest your head (a hand under the chin helps), keep it still, and follow the blue dot with your eyes only.',
+  head: 'Point your nose at the blue dot, as if your head were a pointer, and follow it as it moves.',
+};
+
 interface Props {
   tracker: GazeTracker;
+  mode: PointerMode;
   onDone: (result: FitResult | null, end: CalibrationEnd) => void;
 }
 
-export function Calibration({ tracker, onDone }: Props) {
+export function Calibration({ tracker, mode, onDone }: Props) {
   const [index, setIndex] = useState(-1); // -1 shows the instructions
   const samples = useRef<Sample[]>([]);
   const recording = useRef<number | null>(null); // the dot being recorded, if any
@@ -43,7 +52,7 @@ export function Calibration({ tracker, onDone }: Props) {
     if (index < 0) return;
     if (index >= DOTS.length) {
       const enough = samples.current.length >= MIN_SAMPLES;
-      onDoneRef.current(enough ? fitGaze(samples.current) : null, enough ? 'done' : 'failed');
+      onDoneRef.current(enough ? fitGaze(samples.current, mode) : null, enough ? 'done' : 'failed');
       return;
     }
     recording.current = null;
@@ -58,16 +67,15 @@ export function Calibration({ tracker, onDone }: Props) {
       window.clearTimeout(startRecording);
       window.clearTimeout(nextDot);
     };
-  }, [index]);
+  }, [index, mode]);
 
   if (index < 0) {
     return (
       <div className="calibration">
         <div className="calib-intro">
-          <h2>Eye-gaze calibration</h2>
+          <h2>{mode === 'eyes' ? 'Eye-gaze calibration' : 'Head-pointer calibration'}</h2>
           <p>
-            Sit the way you will use the app, keep your head still, and follow the blue dot with your eyes. It visits 9
-            places and takes about 15 seconds.
+            {INSTRUCTIONS[mode]} It visits {DOTS.length} places and takes about 25 seconds.
           </p>
           <div className="row calib-buttons">
             <button type="button" onClick={() => setIndex(0)}>

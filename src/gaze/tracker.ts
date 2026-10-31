@@ -30,6 +30,7 @@ export class GazeTracker {
         baseOptions: { modelAssetPath: MODEL_URL, delegate },
         runningMode: 'VIDEO',
         numFaces: 1,
+        outputFacialTransformationMatrixes: true, // real head rotation and position
       });
     try {
       this.landmarker = await create('GPU');
@@ -37,7 +38,7 @@ export class GazeTracker {
       this.landmarker = await create('CPU');
     }
     this.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, // more pixels per eye
       audio: false,
     });
     document.body.appendChild(this.video);
@@ -50,8 +51,10 @@ export class GazeTracker {
       if (!landmarker || this.video.readyState < 2 || this.video.currentTime === this.lastVideoTime) return;
       this.lastVideoTime = this.video.currentTime;
       const now = performance.now();
-      const landmarks = landmarker.detectForVideo(this.video, now).faceLandmarks[0];
-      const features = landmarks ? faceFeatures(landmarks) : null;
+      const result = landmarker.detectForVideo(this.video, now);
+      const landmarks = result.faceLandmarks[0];
+      const matrix = result.facialTransformationMatrixes?.[0]?.data;
+      const features = landmarks ? faceFeatures(landmarks, matrix) : null;
       this.listeners.forEach((listener) => listener(features, now));
     };
     this.raf = requestAnimationFrame(loop);

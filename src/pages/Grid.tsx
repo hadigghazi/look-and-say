@@ -7,10 +7,11 @@ import { LevelMeter, useLevels } from '../components/LevelMeter';
 import { GazeTracker } from '../gaze/tracker';
 import { Calibration, type CalibrationEnd } from '../gaze/Calibration';
 import { GazeOverlay } from '../gaze/GazeOverlay';
-import { loadModel, saveModel, type FitResult, type GazeModel } from '../gaze/model';
+import { loadModel, saveModel, type FitResult, type GazeModel, type PointerMode } from '../gaze/model';
 
 const LANGS = ['lb', 'msa', 'en'] as const;
 const GENDERS = ['m', 'f'] as const;
+const POINTER_MODES = ['eyes', 'head'] as const;
 const DWELL_MS = 1200;
 
 function load<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
@@ -31,10 +32,14 @@ function save(key: string, value: string): void {
 }
 
 function describeCalibration(result: FitResult): string {
-  const eye = { both: 'both eyes', right: 'the right eye', left: 'the left eye' }[result.best.choice];
+  const used = { both: 'both eyes', right: 'the right eye', left: 'the left eye', head: 'the head' }[result.best.choice];
   const across = Math.round(result.best.errorX * 100);
   const down = Math.round(result.best.errorY * 100);
-  return `Calibrated with ${eye}: typical error ±${across}% of the screen across, ±${down}% down.`;
+  const moved =
+    result.best.mode === 'eyes' && result.headMovement > 0.05
+      ? ' Your head moved quite a bit; rest it (a hand under the chin helps) and recalibrate for better eye gaze.'
+      : '';
+  return `Calibrated with ${used}: typical error ±${across}% of the screen across, ±${down}% down.${moved}`;
 }
 
 export function Grid() {
@@ -61,7 +66,8 @@ export function Grid() {
   const cellEls = useRef(new Map<string, HTMLElement>());
   const [gazeOn, setGazeOn] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
-  const [gazeModel, setGazeModel] = useState<GazeModel | null>(() => loadModel());
+  const [pointerMode, setPointerMode] = useState<PointerMode>(() => load('las.pointerMode', POINTER_MODES, 'eyes'));
+  const [gazeModel, setGazeModel] = useState<GazeModel | null>(() => loadModel(pointerMode));
   const [gazeStatus, setGazeStatus] = useState<string | null>(null);
   const [dwell, setDwell] = useState(true);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
@@ -130,6 +136,16 @@ export function Grid() {
     setCalibrating(false);
     setHoverKey(null);
     setGazeStatus(null);
+  }
+
+  function changePointerMode(mode: PointerMode) {
+    setPointerMode(mode);
+    save('las.pointerMode', mode);
+    const model = loadModel(mode);
+    setGazeModel(model);
+    setHoverKey(null);
+    setGazeStatus(model ? `Using your last ${mode === 'eyes' ? 'eye-gaze' : 'head-pointer'} calibration.` : null);
+    if (gazeOn && !model) setCalibrating(true);
   }
 
   function onCalibrated(result: FitResult | null, end: CalibrationEnd) {
@@ -219,22 +235,29 @@ export function Grid() {
           </select>
         </label>
 
+        <label>
+          Pointer{' '}
+          <select value={pointerMode} onChange={(e) => changePointerMode(e.target.value as PointerMode)}>
+            <option value="eyes">eyes</option>
+            <option value="head">head</option>
+          </select>
+        </label>
         {gazeOn ? (
           <>
             <button type="button" className="record-on" onClick={stopGaze}>
-              Stop eye gaze
+              Stop pointer
             </button>
             <button type="button" onClick={() => setCalibrating(true)}>
               Recalibrate
             </button>
             <label>
-              <input type="checkbox" checked={dwell} onChange={(e) => setDwell(e.target.checked)} /> select by looking (
+              <input type="checkbox" checked={dwell} onChange={(e) => setDwell(e.target.checked)} /> select by pointing (
               {DWELL_MS / 1000} s)
             </label>
           </>
         ) : (
           <button type="button" onClick={() => void startGaze()}>
-            Use eye gaze
+            Start pointer (camera)
           </button>
         )}
 
@@ -294,7 +317,9 @@ export function Grid() {
         {ATTRIBUTION}
       </footer>
 
-      {gazeOn && calibrating && trackerRef.current && <Calibration tracker={trackerRef.current} onDone={onCalibrated} />}
+      {gazeOn && calibrating && trackerRef.current && (
+        <Calibration tracker={trackerRef.current} mode={pointerMode} onDone={onCalibrated} />
+      )}
       {gazeOn && !calibrating && gazeModel && trackerRef.current && (
         <GazeOverlay
           tracker={trackerRef.current}
