@@ -164,13 +164,19 @@ export async function startMic(onChunk: (chunk16k: Float32Array) => void): Promi
   };
 }
 
-export function playAudio(samples: Float32Array, rate: number = TARGET_RATE): void {
-  const ctx = new AudioContext();
-  const buffer = ctx.createBuffer(1, samples.length, rate);
-  buffer.getChannelData(0).set(samples);
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(ctx.destination);
-  source.onended = () => void ctx.close();
-  source.start();
+/** Plays 16 kHz samples; resolves when playback ends, so words can be played one after another. */
+export function playAudio(samples: Float32Array, rate: number = TARGET_RATE): Promise<void> {
+  return new Promise((resolve) => {
+    const ctx = new AudioContext();
+    const buffer = ctx.createBuffer(1, samples.length, rate);
+    buffer.getChannelData(0).set(samples);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.onended = () => {
+      void ctx.close();
+      resolve();
+    };
+    source.start();
+  });
 }

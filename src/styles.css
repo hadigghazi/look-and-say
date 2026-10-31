@@ -108,8 +108,44 @@ main {
   border-radius: 14px;
 }
 
+.cell {
+  position: relative;
+}
+
 .cell:active {
   transform: scale(0.97);
+}
+
+.cell.armed {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.rec-dot {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2e7d32;
+}
+
+.settings button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.settings .record-on {
+  border-color: #b91c1c;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--accent);
 }
 
 .cell img {
