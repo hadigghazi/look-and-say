@@ -148,6 +148,83 @@ main {
   color: var(--accent);
 }
 
+/* Eye gaze */
+
+.gaze-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(21, 101, 192, 0.75);
+  background: rgba(21, 101, 192, 0.1);
+  pointer-events: none;
+  z-index: 50;
+}
+
+.cell.gaze-hover {
+  box-shadow: 0 0 0 4px rgba(21, 101, 192, 0.45);
+}
+
+.cell.dwelling::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 4px solid var(--accent);
+  border-radius: 18px;
+  clip-path: inset(0 100% 0 0);
+  animation: dwell 1.2s linear forwards;
+}
+
+@keyframes dwell {
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.calibration {
+  position: fixed;
+  inset: 0;
+  background: var(--surface);
+  z-index: 100;
+}
+
+.calib-intro {
+  max-width: 520px;
+  margin: 15vh auto 0;
+  padding: 24px;
+  text-align: center;
+}
+
+.calib-buttons {
+  justify-content: center;
+}
+
+.calib-buttons button {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.calib-dot {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 10px rgba(21, 101, 192, 0.18);
+  transition: left 0.35s ease, top 0.35s ease;
+}
+
+.calib-progress {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--muted);
+}
+
 .cell img {
   width: 80%;
   aspect-ratio: 1;
